@@ -1,0 +1,5 @@
+LD R8, 4(R5)
+LD R6, R3, R8
+AND R7, R8, R6
+BEQ R8, R7, L1
+ST R8, 4(R1)
