@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 
 EMPTY = "-"
 
@@ -22,11 +23,19 @@ class Instruction:
         return str(self).__format__(format_spec)
 
 
+class PipeFunc(Enum):
+    RR = 0 # We read registers here
+    WR = 1 # We write registers here
+    LI = 2 # We load instructions here
+    ZZ = 3 # We don't do shit
+
+
 @dataclass
 class Pipeline:
     name: str
     blocked: bool
     ins: int
+    function: PipeFunc
 
 
 def parse_ins(fname):
@@ -115,14 +124,34 @@ def find_hazards(instructions):
     return raw, war, waw
 
 
-def execute_table(ins, raw, war, waw):
-    print("[Clock] [  IF   |  ID   |  EX   |  MEM  |  WB   ]")
 
-    p_if = Pipeline("if", False, EMPTY)
-    p_id = Pipeline("id", False, EMPTY)
-    p_ex = Pipeline("ex", False, EMPTY)
-    p_mem = Pipeline("mem", False, EMPTY)
-    p_wb = Pipeline("wb", False, EMPTY)
+def get_rr(pipes):
+    for i, p in enumerate(pipes):
+        if p.function == PipeFunc.RR:
+            return i
+
+
+def get_wr(pipes):
+    for i, p in enumerate(pipes):
+        if p.function == PipeFunc.WR:
+            return i
+
+
+def get_li(pipes):
+    for i, p in enumerate(pipes):
+        if p.function == PipeFunc.LI:
+            return i
+
+
+def print_pipes(pipes, clock):
+    print("[{: ^5}] |".format(clock), end="")
+    for p in pipes:
+        print("{: ^7}|".format(p.ins), end="")
+    print()
+
+
+def execute_table(ins, raw, pipes):
+    print("[Clock] [  IF   |  ID   |  EX   |  MEM  |  WB   ]")
 
     executed = []
 
@@ -131,18 +160,16 @@ def execute_table(ins, raw, war, waw):
     clock = 1
     while True:
         # Unblock everything
-        p_if.blocked = False
-        p_id.blocked = False
-        p_ex.blocked = False
-        p_mem.blocked = False
-        p_wb.blocked = False
+        for i in range(len(pipes)):
+            pipes[i].blocked = False
 
         # Check if we need to stop shit because of RAW
-        if p_id.ins != EMPTY:
+        rr_pipe = get_rr(pipes)
+        if pipes[rr_pipe].ins != EMPTY:
             # Comprobamos los riesgos
             for x, y, _ in raw:
                 # Comprobamos que el riesgo nos incluye
-                if x.id != p_id.ins.id:
+                if x.id != pipes[rr_pipe].ins.id:
                     continue
 
                 # Comprobamos que la instruccion es anterior
@@ -159,69 +186,68 @@ def execute_table(ins, raw, war, waw):
                     continue
 
                 # Si no se ha cumplido ninguna de las comprobaciones, bloqueamos
-                p_ex.blocked = True
+                pipes[rr_pipe + 1].blocked = True
                 break
 
-        # Move wb to executed
-        if p_wb.ins != EMPTY:
-            executed.append(p_wb.ins)
-            p_wb.ins = EMPTY
-
+        # Move to executed
+        last_pipe = pipes[-1]
+        if last_pipe.ins != EMPTY:
             # If last instructionn has been executed, exit
-            last_instruction = ins[-1]
-            for e in executed:
-                if last_instruction.id == e.id:
-                    return
+            if ins[-1] == last_pipe.ins:
+                return
+
+            executed.append(last_pipe.ins)
+            pipes[-1].ins = EMPTY
 
         # Movemos las instrucciones que no esten bloqueadas
-        if not p_wb.blocked and p_wb.ins == EMPTY:
-            p_wb.ins = p_mem.ins
-            p_mem.ins = EMPTY
-        if not p_mem.blocked and p_mem.ins == EMPTY:
-            p_mem.ins = p_ex.ins
-            p_ex.ins = EMPTY
-        if not p_ex.blocked and p_ex.ins == EMPTY:
-            p_ex.ins = p_id.ins
-            p_id.ins = EMPTY
-        if not p_id.blocked and p_id.ins == EMPTY:
-            p_id.ins = p_if.ins
-            p_if.ins = EMPTY
+        for i in reversed(range(len(pipes))):
+            curr_pipe = i
+            prev_pipe = curr_pipe - 1
+
+            if prev_pipe <= -1:
+                break
+
+            if not pipes[curr_pipe].blocked and pipes[curr_pipe].ins == EMPTY:
+                pipes[curr_pipe].ins = pipes[prev_pipe].ins
+                pipes[prev_pipe].ins = EMPTY
 
         # Load the new instruction
-        if not p_if.blocked and p_if.ins == EMPTY:
+        li_pipe = get_li(pipes)
+        if not pipes[li_pipe].blocked and pipes[li_pipe].ins == EMPTY:
             try:
-                p_if.ins = ins[curr_ins]
+                pipes[li_pipe].ins = ins[curr_ins]
                 curr_ins += 1
             except:
-                p_if.ins = EMPTY
+                pipes[li_pipe].ins = EMPTY
 
-        print("[{: ^5}] [{: ^7}|{: ^7}|{: ^7}|{: ^7}|{: ^7}]".format(
-            clock,
-            p_if.ins,
-            p_id.ins,
-            p_ex.ins,
-            p_mem.ins,
-            p_wb.ins,
-        ))
+        print_pipes(pipes, clock)
 
         clock += 1
 
-        if curr_ins >= 50:
+        if clock >= 50:
             return
 
 
 def main():
     instructions = parse_ins("data.asm")
 
+    # Calculamos los peligros
     raw, war, waw = find_hazards(instructions)
     print("\n\n{:=<40}\n".format("RIESGOS"))
     print_riesgos("RAW", raw)
     print_riesgos("WAR", war)
     print_riesgos("WAW", waw)
 
-
+    # Ejecutamos el codigo
     print("\n\n{:=<40}\n".format("EJECUCION"))
-    execute_table(instructions, raw, war, waw)
+    pipes = [
+        Pipeline("if", False, EMPTY, PipeFunc.LI),
+        Pipeline("id", False, EMPTY, PipeFunc.RR),
+        Pipeline("ex", False, EMPTY, PipeFunc.ZZ),
+        Pipeline("mem", False, EMPTY, PipeFunc.WR),
+        Pipeline("wb", False, EMPTY, PipeFunc.ZZ)
+    ]
+    execute_table(instructions, raw, pipes)
 
 
 if __name__ == "__main__":
