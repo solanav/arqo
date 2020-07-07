@@ -5,7 +5,7 @@ EMPTY = "-"
 
 branch = ["beq", "bnq"]
 lw = ["lw", "load", "st", "ld"]
-sw = ["sw", ]
+sw = ["sw", "store"]
 rtype = ["add", "sub", "and", "or", "slt", "nor"]
 
 
@@ -43,7 +43,7 @@ def parse_ins(fname):
 
     pins = []
     for i in instructions:
-        s = i.replace(",", EMPTY).split()
+        s = i.replace(",", "").split()
         nus = []
         for part in s:
             nus.append(part.lower())
@@ -66,13 +66,13 @@ def parse_ins(fname):
         # Si la instruccion es de tipo load
         elif instruction_name in lw:
             writes_to.append(i[1])
-            cleani = i[2].replace(")", EMPTY).split("(")[-1]
+            cleani = i[2].replace(")", "").split("(")[-1]
             reads_from.append(cleani)
 
         # Si la instruccion es de tipo store
         elif instruction_name in sw:
             reads_from.append(i[1])
-            cleani = i[2].replace(")", EMPTY).split("(")[-1]
+            cleani = i[2].replace(")", "").split("(")[-1]
             writes_to.append(cleani)
 
         # Si la instruccion es de tipo branch
@@ -151,7 +151,10 @@ def print_pipes(pipes, clock):
 
 
 def execute_table(ins, raw, pipes):
-    print("[Clock] [  IF   |  ID   |  EX   |  MEM  |  WB   ]")
+    print("[Clock] |", end="")
+    for p in pipes:
+        print("{: ^7}|".format(p.name.upper()), end="")
+    print()
 
     executed = []
 
@@ -230,6 +233,7 @@ def execute_table(ins, raw, pipes):
 
 def main():
     instructions = parse_ins("data.asm")
+    print(instructions)
 
     # Calculamos los peligros
     raw, war, waw = find_hazards(instructions)
@@ -241,11 +245,14 @@ def main():
     # Ejecutamos el codigo
     print("\n\n{:=<40}\n".format("EJECUCION"))
     pipes = [
-        Pipeline("if", False, EMPTY, PipeFunc.LI),
-        Pipeline("id", False, EMPTY, PipeFunc.RR),
+        Pipeline("f1", False, EMPTY, PipeFunc.LI),
+        Pipeline("f2", False, EMPTY, PipeFunc.ZZ),
+        Pipeline("d1", False, EMPTY, PipeFunc.ZZ),
+        Pipeline("d2", False, EMPTY, PipeFunc.RR),
         Pipeline("ex", False, EMPTY, PipeFunc.ZZ),
-        Pipeline("mem", False, EMPTY, PipeFunc.WR),
-        Pipeline("wb", False, EMPTY, PipeFunc.ZZ)
+        Pipeline("mem1", False, EMPTY, PipeFunc.ZZ),
+        Pipeline("mem2", False, EMPTY, PipeFunc.ZZ),
+        Pipeline("wr", False, EMPTY, PipeFunc.WR)
     ]
     execute_table(instructions, raw, pipes)
 
