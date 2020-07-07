@@ -9,9 +9,9 @@ class TipoCache(Enum):
 
 
 class Cache:
-    def __init__(self, tipo: TipoCache):
+    def __init__(self):
         # Type of cache
-        self.tipo = tipo
+        self.tipo = TipoCache.FullyAssociative
 
         # Sizes (in bytes)
         self.main_size = -1
@@ -29,6 +29,10 @@ class Cache:
         self.nway = -1
 
     def update(self):
+        if self.main_size != -1 and self.block_size != -1 and self.cache_size != -1:
+            self.update_addr()
+
+    def update_addr(self):
         self.comparators = log2(self.main_size / self.block_size)
         self.addr_size = log2(self.main_size)
         self.offset_size = log2(self.block_size)
@@ -64,13 +68,50 @@ CACHE BLOCK SIZE:  {}
 
 
 def main():
-    c = Cache(TipoCache.FullyAssociative)
-    c.main_size = 32 * 1024
-    c.cache_size = 4 * 1024
-    c.block_size = 16
+    test()
 
+
+def test():
+    # Ejercicio 3.1.5
+    c = Cache()
+    c.main_size = 16 * 1024 * 1024
+    c.cache_size = 8 * 1024
+
+    c.tipo = TipoCache.DirectMapped
+    c.block_size = 1 * 4
     c.update()
+    assert c.addr_size == 24.0
+    assert c.tag_size == 11.0
+    assert c.index_size == 11.0
+    assert c.offset_size == 2.0
+    print(c)
 
+    c.tipo = TipoCache.DirectMapped
+    c.block_size = 8 * 4
+    c.update()
+    assert c.addr_size == 24.0
+    assert c.tag_size == 11.0
+    assert c.index_size == 8.0
+    assert c.offset_size == 5.0
+    print(c)
+
+    c.tipo = TipoCache.SetAssociative
+    c.block_size = 2 * 4
+    c.nway = 4
+    c.update()
+    assert c.addr_size == 24.0
+    assert c.tag_size == 13.0
+    assert c.index_size == 8.0
+    assert c.offset_size == 3.0
+    print(c)
+
+    c.tipo = TipoCache.FullyAssociative
+    c.block_size = 4 * 4
+    c.update()
+    assert c.addr_size == 24.0
+    assert c.tag_size == 20.0
+    assert c.index_size == 0
+    assert c.offset_size == 4.0
     print(c)
 
 
