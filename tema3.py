@@ -12,6 +12,14 @@ class PageTable:
     def __init__(self):
         self.tipo = TipoPage.Fixed
 
+        # TLB
+        self.tlb = False # Si tiene o no un tlb
+        self.tlb_vias = -1 # Numero de vias
+        self.tlb_direcciones_via = -1 # Numero de direcciones en cada via
+        self.tlb_tag = -1
+        self.tlb_index = -1
+        self.tlb_offset = -1
+
         # Sizes
         self.vm_size = -1
         self.real_size = -1
@@ -26,6 +34,14 @@ class PageTable:
         if self.vm_size != -1 and self.real_size != -1 and self.page_size != -1:
             self.update_addr()
 
+            if self.tlb:
+                self.update_tlb()
+
+    def update_tlb(self):
+        self.tlb_index = log2(self.tlb_direcciones_via)
+        self.tlb_offset = self.addr_offset
+        self.tlb_tag = self.vm_addr_size - self.tlb_index - self.tlb_offset
+
     def update_addr(self):
         self.vm_addr_size = log2(self.vm_size)
         self.real_addr_size = log2(self.real_size)
@@ -38,6 +54,7 @@ REAL MEMORY SIZE    {}KB
 VIRTUAL MEMORY SIZE {}KB
 [VTotal - {}] - [Page - {} | Offset - {}]
 [RTotal - {}] - [Page - {} | Offset - {}]
+[TLB - {}] - [Tag - {} | Index - {} | Offset - {}]
         """.format(
             self.tipo,
             self.real_size / 1024,
@@ -47,7 +64,11 @@ VIRTUAL MEMORY SIZE {}KB
             self.addr_offset,
             self.real_addr_size,
             self.real_addr_size - self.addr_offset,
-            self.addr_offset
+            self.addr_offset,
+            self.vm_addr_size,
+            self.tlb_tag,
+            self.tlb_index,
+            self.tlb_offset,
         )
 
 
@@ -134,13 +155,19 @@ def main():
     c.update()
     print(c)
 
-    # TLB and virutual pages bullshit
+    # Virtual pages bullshit
     p = PageTable()
     p.vm_size = 2 ** 32
     p.real_size = 2 ** 24
     p.page_size = 2 ** 12
 
+    # TLB shit
+    p.tlb = True
+    p.tlb_vias = 2
+    p.tlb_direcciones_via = 16
+
     p.update()
+
     print(p)
 
 
