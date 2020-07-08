@@ -6,7 +6,7 @@ EMPTY = "-"
 branch = ["beq", "bnq"]
 lw = ["lw", "load", "st", "ld"]
 sw = ["sw", "store"]
-rtype = ["add", "sub", "and", "or", "slt", "nor"]
+rtype = ["add", "sub", "and", "or", "slt", "nor", "srl"]
 
 
 @dataclass
@@ -50,7 +50,7 @@ def parse_ins(fname):
         pins.append(nus)
 
     nu_pins = []
-    id = 1
+    id = 0
     for i in pins:
         writes_to = []
         reads_from = []
@@ -96,6 +96,18 @@ def print_riesgos(title, riesgos):
         ))
 
 
+def add_riesgo(riesgos, ins0, ins1, registro):
+    nu = riesgos
+    for i0, i1, w in riesgos:
+        if ins0 == i0 and registro == w:
+            nu.remove((i0, i1, w))
+            nu.append((ins0, ins1, registro))
+            return nu
+
+    nu.append((ins0, ins1, registro))
+    return nu
+
+
 def find_hazards(instructions):
     raw = []
     war = []
@@ -109,7 +121,7 @@ def find_hazards(instructions):
             # Check RAW
             for w in curr_ins.reads_from:
                 if w in re_ins.writes_to:
-                    raw.append((curr_ins, re_ins, w))
+                    raw = add_riesgo(raw, curr_ins, re_ins, w)
 
             # Check WAR
             for w in curr_ins.writes_to:
@@ -122,7 +134,6 @@ def find_hazards(instructions):
                     waw.append((curr_ins, re_ins, w))
 
     return raw, war, waw
-
 
 
 def get_rr(pipes):
@@ -239,7 +250,9 @@ def main():
     raw, war, waw = find_hazards(instructions)
     print("\n\n{:=<40}\n".format("RIESGOS"))
     print_riesgos("RAW", raw)
+    print()
     print_riesgos("WAR", war)
+    print()
     print_riesgos("WAW", waw)
 
     # Ejecutamos el codigo
