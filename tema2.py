@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from enum import Enum
+import csv
 
 EMPTY = "-"
 
 branch = ["beq", "bnq"]
-lw = ["lw", "load", "st", "ld"]
-sw = ["sw", "store"]
-rtype = ["add", "sub", "and", "or", "slt", "nor", "srl"]
+lw = ["lw", "load", "ld"]
+sw = ["sw", "store", "st"]
+rtype = ["add", "sub", "and", "or", "slt", "nor", "srl", "mul"]
 
 
 @dataclass
@@ -50,7 +51,7 @@ def parse_ins(fname):
         pins.append(nus)
 
     nu_pins = []
-    id = 0
+    id = 1
     for i in pins:
         writes_to = []
         reads_from = []
@@ -73,7 +74,7 @@ def parse_ins(fname):
         elif instruction_name in sw:
             reads_from.append(i[1])
             cleani = i[2].replace(")", "").split("(")[-1]
-            writes_to.append(cleani)
+            reads_from.append(cleani)
 
         # Si la instruccion es de tipo branch
         elif instruction_name in branch:
@@ -154,18 +155,27 @@ def get_li(pipes):
             return i
 
 
-def print_pipes(pipes, clock):
+def print_pipes(pipes, clock, csvfile):
+    csv_row = [str(clock)]
     print("[{: ^5}] |".format(clock), end="")
     for p in pipes:
+        csv_row.append(str(p.ins))
         print("{: ^7}|".format(p.ins), end="")
     print()
+    csvfile.writerow(csv_row)
 
 
 def execute_table(ins, raw, pipes):
+    output_file = open('output.csv', 'w', newline="")
+    csvw = csv.writer(output_file, delimiter=",", quotechar="\"", quoting=csv.QUOTE_MINIMAL)
+
+    csv_row = ["Clock"]
     print("[Clock] |", end="")
     for p in pipes:
+        csv_row.append(p.name.upper())
         print("{: ^7}|".format(p.name.upper()), end="")
     print()
+    csvw.writerow(csv_row)
 
     executed = []
 
@@ -234,7 +244,7 @@ def execute_table(ins, raw, pipes):
             except:
                 pipes[li_pipe].ins = EMPTY
 
-        print_pipes(pipes, clock)
+        print_pipes(pipes, clock, csvw)
 
         clock += 1
 
@@ -258,14 +268,10 @@ def main():
     # Ejecutamos el codigo
     print("\n\n{:=<40}\n".format("EJECUCION"))
     pipes = [
-        Pipeline("f1", False, EMPTY, PipeFunc.LI),
-        Pipeline("f2", False, EMPTY, PipeFunc.ZZ),
-        Pipeline("d1", False, EMPTY, PipeFunc.ZZ),
-        Pipeline("d2", False, EMPTY, PipeFunc.RR),
-        Pipeline("ex", False, EMPTY, PipeFunc.ZZ),
-        Pipeline("mem1", False, EMPTY, PipeFunc.ZZ),
-        Pipeline("mem2", False, EMPTY, PipeFunc.ZZ),
-        Pipeline("wr", False, EMPTY, PipeFunc.WR)
+        Pipeline("s1", False, EMPTY, PipeFunc.LI),
+        Pipeline("s2", False, EMPTY, PipeFunc.RR),
+        Pipeline("s3", False, EMPTY, PipeFunc.ZZ),
+        Pipeline("s4", False, EMPTY, PipeFunc.WR),
     ]
     execute_table(instructions, raw, pipes)
 
