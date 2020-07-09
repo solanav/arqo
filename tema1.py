@@ -29,7 +29,7 @@ def amdahl(enhancement_tuples):
             mejora.append(e)
 
     # Por cada instrucion
-    ag = 0
+    ag = 1
     for e in mejora:
         nombre, porcentaje, bef, aft = e
         am = bef/aft
@@ -49,7 +49,7 @@ def amdahl(enhancement_tuples):
         fm = (porcentaje * bef) / tot
 
         agtmp = 1 / ((1-fm) + (fm/am))
-        ag += agtmp
+        ag *= agtmp
 
         print("{}, AG={:f}, FM={:f}, AM={:f}".format(nombre, agtmp, fm, am))
 
