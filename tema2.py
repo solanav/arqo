@@ -87,8 +87,14 @@ def parse_ins(fname):
     return nu_pins
 
 
-def print_riesgos(title, riesgos):
+def print_riesgos(title, riesgos, csvw):
     for r1, r2, w in riesgos:
+        csvr = []
+        csvr.append(str(title).upper())
+        csvr.append(str(r1).upper())
+        csvr.append(str(r2).upper())
+        csvr.append(str(w).upper())
+        csvw.writerow(csvr)
         print("{} hazard, {} con {} por {}".format(
             title,
             r1,
@@ -165,10 +171,7 @@ def print_pipes(pipes, clock, csvfile):
     csvfile.writerow(csv_row)
 
 
-def execute_table(ins, raw, pipes):
-    output_file = open('output.csv', 'w', newline="")
-    csvw = csv.writer(output_file, delimiter=",", quotechar="\"", quoting=csv.QUOTE_MINIMAL)
-
+def execute_table(ins, raw, pipes, csvw):
     csv_row = ["Clock"]
     print("[Clock] |", end="")
     for p in pipes:
@@ -253,17 +256,23 @@ def execute_table(ins, raw, pipes):
 
 
 def main():
+    output_file = open('riesgos.csv', 'w', newline="")
+    csvw = csv.writer(output_file, delimiter=",", quotechar="\"", quoting=csv.QUOTE_MINIMAL)
+
+    output_file = open('execution.csv', 'w', newline="")
+    csvw2 = csv.writer(output_file, delimiter=",", quotechar="\"", quoting=csv.QUOTE_MINIMAL)
+
     instructions = parse_ins("data.asm")
     print(instructions)
 
     # Calculamos los peligros
     raw, war, waw = find_hazards(instructions)
     print("\n\n{:=<40}\n".format("RIESGOS"))
-    print_riesgos("RAW", raw)
+    print_riesgos("RAW", raw, csvw)
     print()
-    print_riesgos("WAR", war)
+    print_riesgos("WAR", war, csvw)
     print()
-    print_riesgos("WAW", waw)
+    print_riesgos("WAW", waw, csvw)
 
     # Ejecutamos el codigo
     print("\n\n{:=<40}\n".format("EJECUCION"))
@@ -273,7 +282,7 @@ def main():
         Pipeline("s3", False, EMPTY, PipeFunc.ZZ),
         Pipeline("s4", False, EMPTY, PipeFunc.WR),
     ]
-    execute_table(instructions, raw, pipes)
+    execute_table(instructions, raw, pipes, csvw2)
 
 
 if __name__ == "__main__":
